@@ -1,5 +1,5 @@
-import Data.Set (Set)
-import qualified Data.Set as Set 
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 type Vector = (Int, Int)
 
@@ -14,11 +14,11 @@ parse (d:xs) =
     'D' -> ( 1, 0)
     'R' -> ( 0, 1), c) : parse xs'
 
-trace :: [(Vector, Int)] -> Set Vector
-trace = fst . foldl add (Set.empty, (0, 0))
-  where add (s, p) ((x', y'), c) =
+trace :: [(Vector, Int)] -> Map Vector Int
+trace = fst . foldl add (Map.empty, ((0, 0), 0))
+  where add (m, (p, s)) ((x', y'), c) =
           let points = take c $ drop 1 $ iterate (\(x, y) -> (x + x', y + y')) p
-          in (Set.union s $ Set.fromList points, last points)
+          in (Map.union m $ Map.fromList (zip points [s+1..]), (last points, s + c))
 
 distance :: Vector -> Vector -> Int
 distance (x, y) (x', y') = abs (x - x') + abs (y - y')
@@ -26,4 +26,9 @@ distance (x, y) (x', y') = abs (x - x') + abs (y - y')
 part1 :: String -> Int
 part1 input =
   let [first, second] = map (trace . parse) $ lines input
-  in minimum $ map (distance (0,0)) $ Set.toList $ Set.intersection first second
+  in minimum $ map (distance (0,0)) $ Map.keys $ Map.intersection first second
+
+part2 :: String -> Int
+part2 input =
+  let [first, second] = map (trace . parse) $ lines input
+  in minimum $ map snd $ Map.toList $ Map.intersectionWith (+) first second
