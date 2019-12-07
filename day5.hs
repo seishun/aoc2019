@@ -5,27 +5,35 @@ parse :: String -> Seq Int
 parse input = Seq.fromList $ read $ "[" ++ input ++ "]"
 
 run :: [Int] -> Int -> Seq Int -> [Int]
-run input pos program = case Seq.drop pos program of
-  99 :<| _ -> []
-  3 :<| a :<| _ ->
+run input pos program =
+  let op :<| params = Seq.drop pos program
+      op' = op `mod` 100
+      params' = Seq.mapWithIndex resolve params
+        where resolve i param =
+                let mode = op `div` 10 ^ (2 + i) `mod` 10
+                in if mode == 0 then Seq.index program param else param
+  in if op' == 99 then []
+  else if op' == 3 then
     let (value:xs) = input
-        program' = Seq.update a value program
+        program' = Seq.update (Seq.index params 0) value program
     in run xs (pos + 2) program'
-  op :<| params ->
-    let op' = op `mod` 10
-    in if op' == 4 then
-      let a :<| _ = params
-          a' = if op `div` 100 `mod` 100 == 0 then Seq.index program a else a
-      in a' : run input (pos + 2) program
-    else
-      let a :<| b :<| c :<| _ = params
-          a' = if op `div` 100 `mod` 10 == 0 then Seq.index program a else a
-          b' = if op `div` 1000 `mod` 10 == 0 then Seq.index program b else b
-          c' = case op' of
-            1 -> a' + b'
-            2 -> a' * b'
-          program' = Seq.update c c' program
-      in run input (pos + 4) program'
+  else if op' == 4 then Seq.index params' 0 : run input (pos + 2) program
+  else if op' > 2 && op' < 7 then
+    let ip = case op' of
+          5 -> if Seq.index params' 0 /= 0 then Seq.index params' 1 else pos + 3
+          6 -> if Seq.index params' 0 == 0 then Seq.index params' 1 else pos + 3
+    in run input ip program
+  else
+    let result = case op' of
+          1 -> Seq.index params' 0 + Seq.index params' 1
+          2 -> Seq.index params' 0 * Seq.index params' 1
+          7 -> if Seq.index params' 0 < Seq.index params' 1 then 1 else 0
+          8 -> if Seq.index params' 0 == Seq.index params' 1 then 1 else 0
+        program' = Seq.update (Seq.index params 2) result program
+    in run input (pos + 4) program'
 
 part1 :: String -> Int
 part1 = last . run [1] 0 . parse
+
+part2 :: String -> Int
+part2 = head . run [5] 0 . parse
