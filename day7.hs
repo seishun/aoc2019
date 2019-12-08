@@ -1,11 +1,12 @@
 import Data.List
+import Data.Maybe
 import Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 
 parse :: String -> Seq Int
 parse input = Seq.fromList $ read $ "[" ++ input ++ "]"
 
-run :: Int -> Seq Int -> [Int] -> [Int]
+run :: Int -> Seq Int -> [Int] -> ([Int], Maybe (Int, Seq Int))
 run pos program input =
   let op :<| params = Seq.drop pos program
       op' = op `mod` 100
@@ -13,12 +14,16 @@ run pos program input =
         where resolve i param =
                 let mode = op `div` 10 ^ (2 + i) `mod` 10
                 in if mode == 0 then Seq.index program param else param
-  in if op' == 99 then []
+  in if op' == 99 then ([], Nothing)
   else if op' == 3 then
-    let (value:xs) = input
-        program' = Seq.update (Seq.index params 0) value program
-    in run (pos + 2) program' xs
-  else if op' == 4 then Seq.index params' 0 : run (pos + 2) program input
+    case input of
+      (value:xs) ->
+        let program' = Seq.update (Seq.index params 0) value program
+        in run (pos + 2) program' xs
+      [] -> ([], Just (pos, program))
+  else if op' == 4 then
+    let (output, ip) = run (pos + 2) program input
+    in (Seq.index params' 0 : output, ip)
   else if op' > 2 && op' < 7 then
     let ip = case op' of
           5 -> if Seq.index params' 0 /= 0 then Seq.index params' 1 else pos + 3
@@ -33,8 +38,26 @@ run pos program input =
         program' = Seq.update (Seq.index params 2) result program
     in run (pos + 4) program' input
 
+loop :: Seq Int -> [Int] -> [Int]
+loop program phases =
+  let (output, states') = mapAccumL amp [0] phases
+  in loop' states' output
+  where amp input phase = run 0 program (phase : input)
+
+loop' :: [Maybe (Int, Seq Int)] -> [Int] -> [Int]
+loop' states input = case catMaybes states of
+  [] -> input
+  states ->
+    let (output, states') = mapAccumL amp input states
+    in loop' states' output
+    where amp input (pos, program) = run pos program input
+
 part1 :: String -> Int
 part1 input = 
   let program = parse input
-      amp input phase = run 0 program (phase : input)
-  in maximum [head $ foldl amp [0] phases | phases <- permutations [0,1,2,3,4]]
+  in maximum [head $ loop program phases | phases <- permutations [0..4]]
+
+part2 :: String -> Int
+part2 input =
+  let program = parse input
+  in maximum [head $ loop program phases | phases <- permutations [5..9]]
