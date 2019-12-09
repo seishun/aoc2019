@@ -40,3 +40,6 @@ run input pos base program =
 
 part1 :: String -> Int
 part1 = head . run [1] 0 0 . parse
+
+part2 :: String -> Int
+part2 = head . run [2] 0 0 . parse
