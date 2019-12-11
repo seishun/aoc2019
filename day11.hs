@@ -1,8 +1,11 @@
+import Data.Function
+import Data.List
 import Data.Map (Map(..))
 import qualified Data.Map as Map
 import Data.Ord
 
 type State = (Int, Int, Map Int Int)
+type Panels = Map (Int, Int) Int
 
 data Direction = U | R | D | L deriving (Enum)
 
@@ -13,9 +16,9 @@ turn d 0 = pred d
 turn d 1 = succ d
 
 move :: (Int, Int) -> Direction -> (Int, Int)
-move (x, y) U = (x, pred y)
+move (x, y) U = (x, succ y)
 move (x, y) R = (succ x, y)
-move (x, y) D = (x, succ y)
+move (x, y) D = (x, pred y)
 move (x, y) L = (pred x, y)
 
 parse :: String -> Map Int Int
@@ -60,7 +63,7 @@ run (pos, base, program) input =
   where get pos = Map.findWithDefault 0 pos program
         set pos value = Map.insert pos value program
 
-paint :: State -> (Int, Int) -> Direction -> Map (Int, Int) Int -> Int
+paint :: State -> (Int, Int) -> Direction -> Panels -> Panels
 paint state pos facing panels =
   let panel = Map.findWithDefault 0 pos panels
       ([color, direction], state') = run state [panel]
@@ -68,10 +71,20 @@ paint state pos facing panels =
       facing' = turn facing direction
       pos' = move pos facing'
   in case state' of
-    Nothing -> Map.size panels'
+    Nothing -> panels'
     Just state' -> paint state' pos' facing' panels'
+
+draw :: Panels -> String
+draw = unlines . map (map color) . groupBy ((==) `on` (fst . fst)) . Map.toList
+  where color (_, 0) = '.'
+        color (_, 1) = '#'
 
 part1 :: String -> Int
 part1 input =
   let program = parse input
-  in paint (0, 0, program) (0, 0) U Map.empty
+  in Map.size $ paint (0, 0, program) (0, 0) U $ Map.empty
+
+part2 :: String -> String
+part2 input =
+  let program = parse input
+  in draw $ paint (0, 0, program) (0, 0) U $ Map.singleton (0, 0) 1
