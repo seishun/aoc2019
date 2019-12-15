@@ -50,24 +50,41 @@ run (pos, base, program) input =
   where get pos = Map.findWithDefault 0 pos program
         set pos value = Map.insert pos value program
 
-adjacent :: (Location, State) -> [Maybe (Location, State)]
+adjacent :: (Location, State) -> [(Bool, (Location, State))]
 adjacent ((x, y), state) = do
   (move, pos') <- zip [1..4] [(x, y-1), (x, y+1), (x-1, y), (x+1, y)]
   let ([status], state') = run state [move]
   guard $ status /= 0
   return $ case status of
-    1 -> Just (pos', state')
-    2 -> Nothing
+    1 -> (False, (pos', state'))
+    2 -> (True, (pos', state'))
 
-bfs :: Set Location -> Map Location State -> Int
-bfs visited unvisited =
+bfs1 :: Set Location -> Map Location State -> (Int, (Location, State))
+bfs1 visited unvisited =
   let adjacent' = concatMap adjacent $ Map.toList unvisited
-  in if Nothing `elem` adjacent' then 1
-  else let unvisited' = Map.withoutKeys (Map.fromList $ catMaybes adjacent') visited
-           visited' = Set.union visited $ Map.keysSet unvisited
-  in 1 + bfs visited' unvisited'
+  in case filter fst adjacent' of
+    [(_, ls)] -> (1, ls)
+    [] ->
+      let unvisited' = Map.withoutKeys (Map.fromList $ map snd adjacent') visited
+          visited' = Set.union visited $ Map.keysSet unvisited
+          (steps, ls) = bfs1 visited' unvisited'
+      in (succ steps, ls)
+
+bfs2 :: Set Location -> Map Location State -> Int
+bfs2 visited unvisited =
+  let adjacent' = concatMap adjacent $ Map.toList unvisited
+      unvisited' = Map.withoutKeys (Map.fromList $ map snd adjacent') visited
+      visited' = Set.union visited $ Map.keysSet unvisited
+  in if Map.null unvisited' then 0
+  else 1 + bfs2 visited' unvisited'
 
 part1 :: String -> Int
 part1 input =
   let program = parse input
-  in bfs Set.empty $ Map.singleton (0, 0) (0, 0, program)
+  in fst $ bfs1 Set.empty $ Map.singleton (0, 0) (0, 0, program)
+
+part2 :: String -> Int
+part2 input =
+  let program = parse input
+      (pos, state) = snd $ bfs1 Set.empty $ Map.singleton (0, 0) (0, 0, program)
+  in bfs2 Set.empty $ Map.singleton pos state
